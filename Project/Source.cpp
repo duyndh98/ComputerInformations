@@ -1,11 +1,27 @@
-#include <windows.h>
+#ifndef UNICODE
+#define UNICODE
+#endif
+#pragma comment(lib, "netapi32.lib")
+//#pragma comment(lib, "Secur32.lib")
+
+#include <stdio.h>
+#include <windows.h> 
+#include <lm.h>
+#include <comdef.h>
 #include <string>
 #include <map>
 #include <array>
+#include <vector>
 #include <iostream>
 #include <iomanip>
+#include <math.h>
+//#include <Security.h>
 
 using namespace std;
+
+
+#define DIV 1024
+#define WIDTH 30
 
 struct Detail
 {
@@ -29,25 +45,6 @@ map<DWORD, Detail> ProcessorType = {
 	{ 0,{ "PROCESSOR_ARM", "" } }
 };
 
-map<DWORD, Detail> PlatformId = {
-	{ 2,{ "VER_PLATFORM_WIN32_NT", "The operating system is Windows 7, Windows Server 2008, Windows Vista, Windows Server 2003, Windows XP, or Windows 2000" } }
-};
-
-map<WORD, Detail> SuiteMask = {
-	{ 0x00000004,{ "VER_SUITE_BACKOFFICE", "Microsoft BackOffice components are installed" } },
-	{ 0x00000400,{ "VER_SUITE_BLADE", "Windows Server 2003, Web Edition is installed" } },
-	{ 0x00004000,{ "VER_SUITE_COMPUTE_SERVER", "Windows Server 2003, Compute Cluster Edition is installed" } },
-	{ 0x00000080,{ "VER_SUITE_DATACENTER", "Windows Server 2008 Datacenter, Windows Server 2003, Datacenter Edition, or Windows 2000 Datacenter Server is installed" } },
-	{ 0x00000002,{ "VER_SUITE_ENTERPRISE", "Windows Server 2008 Enterprise, Windows Server 2003, Enterprise Edition, or Windows 2000 Advanced Server is installed. Refer to the Remarks section for more information about this bit flag" } },
-	{ 0x00000040,{ "VER_SUITE_EMBEDDEDNT", "Windows XP Embedded is installed" } },
-	{ 0x00000200,{ "VER_SUITE_PERSONAL", "Windows Vista Home Premium, Windows Vista Home Basic, or Windows XP Home Edition is installed" } },
-	{ 0x00000100,{ "VER_SUITE_SINGLEUSERTS", "Remote Desktop is supported, but only one interactive session is supported. This value is set unless the system is running in application server mode" } },
-	{ 0x00000001,{ "VER_SUITE_SMALLBUSINESS", "Microsoft Small Business Server was once installed on the system, but may have been upgraded to another version of Windows. Refer to the Remarks section for more information about this bit flag" } },
-	{ 0x00000020,{ "VER_SUITE_SMALLBUSINESS_RESTRICTED", "Microsoft Small Business Server is installed with the restrictive client license in force. Refer to the Remarks section for more information about this bit flag" } },
-	{ 0x00002000,{ "VER_SUITE_STORAGE_SERVER", "Windows Storage Server 2003 R2 or Windows Storage Server 2003is installed" } },
-	{ 0x00000010,{ "VER_SUITE_TERMINAL", "Terminal Services is installed. This value is always set " } },
-	{ 0x00008000,{ "VER_SUITE_WH_SERVER", "Windows Home Server is installed" } }
-};
 
 map<DWORD, Detail> ProductType = {
 	{ 0x00000006,{ "PRODUCT_BUSINESS", "Business" } },
@@ -146,34 +143,54 @@ map<DWORD, Detail> ProductType = {
 	{ 0x0000001D,{ "PRODUCT_WEB_SERVER_CORE", "Web Server (core installation)" } }
 };
 
+string getActiveProcessorMask(DWORD dwActiveProcessorMask)
+{
+	string s;
+	while (dwActiveProcessorMask)
+	{
+		s = s + string(1, dwActiveProcessorMask % 2 + '0') + " ";
+		dwActiveProcessorMask /= 2;
+	}
+	return s;
+}
+
 void systemInfo()
 {
-	cout << "\tSYSTEM INFO" << endl;
+	cout << "\t\tSYSTEM INFO" << endl;
 
 	SYSTEM_INFO systemInfo;
 	GetSystemInfo(&systemInfo);
 
 
 	cout << left;
-	cout << setw(30) << " Processor Architecture: " << ProcessorArchitecture[systemInfo.wProcessorArchitecture].value << endl;
-	cout << setw(30) << " Processor Type: " << ProcessorType[systemInfo.dwProcessorType].value << endl;
-	cout << setw(30) << " Active Processor Mask: " << systemInfo.dwActiveProcessorMask << endl;
-	cout << setw(30) << " Number Of Processors: " << systemInfo.dwNumberOfProcessors << endl;
-	cout << setw(30) << " Page Size: " << systemInfo.dwPageSize << endl;
-	cout << setw(30) << " Minimum Application Address: " << systemInfo.lpMinimumApplicationAddress << endl;
-	cout << setw(30) << " Maximum Application Address: " << systemInfo.lpMaximumApplicationAddress << endl;
+
+	cout << setw(WIDTH) << " Processor Architecture: " << ProcessorArchitecture[systemInfo.wProcessorArchitecture].value << endl;
+	cout << setw(WIDTH) << "" << ProcessorArchitecture[systemInfo.wProcessorArchitecture].meaning << endl;
+
+	cout << setw(WIDTH) << " Processor Type: " << ProcessorType[systemInfo.dwProcessorType].value << endl;
+
+	cout << setw(WIDTH) << " Number Of Processors: " << systemInfo.dwNumberOfProcessors << endl;
+
+	cout << setw(WIDTH) << " Active Processor Mask: " << getActiveProcessorMask(systemInfo.dwActiveProcessorMask) << endl;
+
+	cout << setw(WIDTH) << " Page Size: " << systemInfo.dwPageSize << endl;
+
+	// cout << setw(WIDTH) << " Minimum Application Address: " << systemInfo.lpMinimumApplicationAddress << endl;
+	// cout << setw(WIDTH) << " Maximum Application Address: " << systemInfo.lpMaximumApplicationAddress << endl;
 	// cout << " dwOemId: " << systemInfo.dwOemId << endl;
 	// cout << " wReserved: " << systemInfo.wReserved << endl;
 	// cout << " dwAllocationGranularity: " << systemInfo.dwAllocationGranularity << endl;
 	// cout << " wProcessorLevel: " << systemInfo.wProcessorLevel << endl;
 	// cout << " wProcessorRevision: " << systemInfo.wProcessorRevision << endl;
+
+	cout << "-----------------------------------------------------" << endl;
 	cout << endl;
 }
 
 
 void osVersionInfo()
 {
-	cout << "\tOS VERSION INFO" << endl;
+	cout << "\t\tOS VERSION INFO" << endl;
 
 	OSVERSIONINFOEX osvi;
 	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
@@ -184,48 +201,140 @@ void osVersionInfo()
 	GetProductInfo(osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.wServicePackMajor, osvi.wServicePackMinor, pdwReturnedProductType);
 
 	cout << left;
-	cout << setw(30) << " Product Type: " << ProductType[*pdwReturnedProductType].meaning << endl;
-	cout << setw(30) << " Version Number: " << osvi.dwMajorVersion << "." << osvi.dwMinorVersion << endl;
-	cout << setw(30) << " Build Number: " << osvi.dwBuildNumber << endl;
-	cout << setw(30) << " Suit Mask: " << SuiteMask[osvi.wSuiteMask].value << endl;
-	cout << setw(30) << " Platform Id: " << PlatformId[osvi.dwPlatformId].value << endl;
-	cout << setw(30) << " CSD Version: " << (osvi.szCSDVersion[0] != '\0' ? osvi.szCSDVersion : "No Service Pack has been installed") << endl;
-	cout << setw(30) << " Service Pack: " << osvi.wServicePackMajor << "." << osvi.wServicePackMinor << endl;
-	// cout << setw(30) << " Operating System: " << getOperatingSystem(to_string(osvi.dwMajorVersion) + "." + to_string(osvi.dwMinorVersion), osvi) << endl;
-	// cout << setw(30) << " Product Type: " << osvi.wProductType << endl;
-	// cout << setw(30) << " Reserved: " << osvi.wReserved << endl;
-	// cout << setw(30) << " OS Version Info Size: " << osvi.dwOSVersionInfoSize << endl;
+
+	cout << setw(WIDTH) << " Product Type: " << ProductType[*pdwReturnedProductType].value << endl;
+	cout << setw(WIDTH) << "" << ProductType[*pdwReturnedProductType].meaning << endl;
+
+	cout << setw(WIDTH) << " Build Number: " << osvi.dwBuildNumber << endl;
+
+	cout << setw(WIDTH) << " CSD Version: " << (osvi.szCSDVersion[0] != '\0' ? (_bstr_t)osvi.szCSDVersion : "No Service Pack has been installed") << endl;
+	
+	cout << setw(WIDTH) << " Service Pack: " << osvi.wServicePackMajor << "." << osvi.wServicePackMinor << endl;
+	
+	// cout << setw(WIDTH) << " Version Number: " << osvi.dwMajorVersion <<5 "." << osvi.dwMinorVersion << endl;
+	//cout << setw(WIDTH) << " Suit Mask: " << SuiteMask[osvi.wSuiteMask].value << endl;
+	//cout << setw(WIDTH) << "" << SuiteMask[osvi.wSuiteMask].meaning << endl;
+	// cout << setw(WIDTH) << " Platform Id: " << PlatformId[osvi.dwPlatformId].value << endl;
+	// cout << setw(WIDTH) << "" << PlatformId[osvi.dwPlatformId].meaning << endl;
+	// cout << setw(WIDTH) << " Operating System: " << getOperatingSystem(to_string(osvi.dwMajorVersion) + "." + to_string(osvi.dwMinorVersion), osvi) << endl;
+	// cout << setw(WIDTH) << " Product Type: " << osvi.wProductType << endl;
+	// cout << setw(WIDTH) << " Reserved: " << osvi.wReserved << endl;
+	// cout << setw(WIDTH) << " OS Version Info Size: " << osvi.dwOSVersionInfoSize << endl;
+	
+	cout << "-----------------------------------------------------" << endl;
+	cout << endl;
+}
+
+
+// x byte -> B/KB/MB/GB/
+string unitConversion(DWORDLONG x)
+{
+	const vector<string> unitType = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+	
+	WORD id = log(x) / log(DIV); // log1024(x)
+	DWORDLONG y = round(((float)x / pow(2, 10 * id)) * 100);
+	
+	return to_string(y / 100) + "." + to_string(y % 100) + " " + unitType[id];
+}
+
+void globalMemoryStatus()
+{
+	cout << "\t\tGLOBAL MEMORY STATUS" << endl;
+
+	MEMORYSTATUSEX statex;
+
+	statex.dwLength = sizeof(statex);
+
+	GlobalMemoryStatusEx(&statex);
+
+
+	cout << setw(WIDTH) << " Total of physical memory: " << unitConversion(statex.ullTotalPhys) << endl;
+
+	cout << setw(WIDTH) << " Total of paging file: " << unitConversion(statex.ullTotalPageFile) << endl;
+
+	cout << setw(WIDTH) << " Total of virtual memory: " << unitConversion(statex.ullTotalVirtual) << endl;
+
+	// cout << setw(WIDTH) << " Memory in use: " << statex.dwMemoryLoad << " %" << endl;
+	// cout << setw(WIDTH) << " Free of physical memory: " << statex.ullAvailPhys / DIV << " KB" << endl;
+	// cout << setw(WIDTH) << " Free of paging file: " << statex.ullAvailPageFile / DIV << " KB" << endl;
+	// cout << setw(WIDTH) << " Free of virtual memory: " << statex.ullAvailVirtual / DIV << " KB" << endl;
+	// cout << setw(WIDTH) << " Free of extended memory: " << statex.ullAva ilExtendedVirtual / DIV << " KB" << endl;
+
+	cout << "-----------------------------------------------------" << endl;
+	cout << endl;
+}
+
+void netUserEnum()
+{
+	cout << "\t\tACCOUNT" << endl;
+	
+	LPTSTR pszServerName = NULL;
+	DWORD dwLevel = 0;
+	DWORD dwFilter = FILTER_NORMAL_ACCOUNT; // global users
+	LPUSER_INFO_0 pBuf = NULL;
+	DWORD dwPrefMaxLen = MAX_PREFERRED_LENGTH;
+	DWORD dwEntriesRead = 0;
+	DWORD dwTotalEntries = 0;
+	DWORD dwResumeHandle = 0;
+
+	DWORD dwTotalCount = 0;
+	NET_API_STATUS nStatus;
+
+	nStatus = NetUserEnum((LPCWSTR)pszServerName,
+		dwLevel,
+		dwFilter,
+		(LPBYTE*)&pBuf,
+		dwPrefMaxLen,
+		&dwEntriesRead,
+		&dwTotalEntries,
+		&dwResumeHandle);
+
+	cout << " Number of user account: " << dwEntriesRead << endl;
+
+	LPUSER_INFO_0 pTmpBuf = pBuf;
+
+	for (DWORD i = 0; i < dwEntriesRead; i++)
+	{
+		wcout << "\t- " << pTmpBuf->usri0_name << endl;
+		
+		pTmpBuf++;
+		dwTotalCount++;
+	}
+	if (pBuf != NULL)
+	{
+		NetApiBufferFree(pBuf);
+		pBuf = NULL;
+	}
+
+	DWORD size = UNLEN + 1;
+	LPWSTR lpBuffer = new WCHAR[size];
+	GetUserNameW(lpBuffer, &size);
+	wcout << " Current user: " << lpBuffer << endl;
+	delete[] lpBuffer;
+	cout << "-----------------------------------------------------" << endl; 
+	cout << endl;
+}
+
+void ipConfig()
+{
+	system("ipconfig");
+	cout << "-----------------------------------------------------" << endl; 
+	cout << endl;
 }
 
 int main()
 {
+	cout << endl;
+	cout << "\t\tCOMPUTER INFO" << endl;
+	cout << "=====================================================" << endl;
+	cout << endl;
+	
 	systemInfo();
 	osVersionInfo();
-
-
+	globalMemoryStatus();
+	netUserEnum();
+	ipConfig();
+	
 	system("pause");
 	return 0;
 }
-
-/*map<string, array<string, 2>> OperatingSystem = {
-{ "10.0", { "Windows 10", "Windows Server 2016" } },
-{ "6.3", { "Windows 8.1", "Windows Server 2012 R2" } },
-{ "6.2", { "Windows 8", "Windows Server 2012" } },
-{ "6.1", { "Windows 7", "Windows Server 2008 R2" } },
-{ "6.0", { "Windows Vista", "Windows Server 2008" } },
-{ "5.2", { "Windows Server 2003", "Windows Server 2003 R2" } },
-{ "5.1", { "Windows XP", "Windows XP" } },
-{ "5.1", { "Windows 2000", "Windows 2000" } }
-};*/
-
-/*string getOperatingSystem(string& versionNumber, OSVERSIONINFOEX &osvi)
-{
-if (versionNumber[0] > '5')
-return OperatingSystem[versionNumber][osvi.wProductType != VER_NT_WORKSTATION];
-else if (versionNumber == "5.2")
-return OperatingSystem[versionNumber][GetSystemMetrics(SM_SERVERR2) != 0];
-else if (versionNumber == "5.1" || versionNumber == "5.0")
-return OperatingSystem[versionNumber][0];
-else
-return "Unknown Operating System";
-}*/
